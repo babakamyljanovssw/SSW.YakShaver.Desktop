@@ -1,11 +1,11 @@
+import { Settings as SettingsIcon, X } from "lucide-react";
 import { useState } from "react";
-import { X, Settings as SettingsIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
-import { BranchUpdater } from "./BranchUpdater";
 import { LLMKeyManager } from "../llm/LLMKeyManager";
 import { McpServerManager } from "../mcp/McpServerManager";
+import { BranchUpdater } from "./BranchUpdater";
 import { CustomPromptManager } from "./CustomPromptManager";
 
 interface SettingsPanelProps {
@@ -102,4 +102,3 @@ export const SettingsButton = () => {
     </Button>
   );
 };
-

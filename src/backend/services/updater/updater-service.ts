@@ -4,346 +4,346 @@ import type { ProgressInfo, UpdateInfo } from "electron-updater";
 import { autoUpdater } from "electron-updater";
 
 export interface BranchInfo {
-    name: string;
-    displayName: string;
-    sha: string;
-    type: "release" | "branch" | "pr";
-    prNumber?: number;
-    releaseTag?: string;
+  name: string;
+  displayName: string;
+  sha: string;
+  type: "release" | "branch" | "pr";
+  prNumber?: number;
+  releaseTag?: string;
 }
 
 export interface UpdaterConfig {
-    owner: string;
-    repo: string;
-    channel?: string;
+  owner: string;
+  repo: string;
+  channel?: string;
 }
 
 export class UpdaterService {
-    private static instance: UpdaterService;
-    private octokit: Octokit;
-    private config: UpdaterConfig;
-    private currentChannel: string = "latest";
-    private branchesCache: { data: BranchInfo[]; timestamp: number } | null = null;
-    private readonly CACHE_DURATION_MS = 5 * 60 * 1000; // 5 minutes
+  private static instance: UpdaterService;
+  private octokit: Octokit;
+  private config: UpdaterConfig;
+  private currentChannel: string = "latest";
+  private branchesCache: { data: BranchInfo[]; timestamp: number } | null = null;
+  private readonly CACHE_DURATION_MS = 5 * 60 * 1000; // 5 minutes
 
-    private constructor() {
-        this.config = {
-            owner: "babakamyljanovssw",
-            repo: "SSW.YakShaver.Desktop",
-            channel: "latest",
-        };
+  private constructor() {
+    this.config = {
+      owner: "babakamyljanovssw",
+      repo: "SSW.YakShaver.Desktop",
+      channel: "latest",
+    };
 
-        // Initialize Octokit with optional authentication
-        // If GITHUB_TOKEN is provided, use it for higher rate limits (5000/hour vs 60/hour)
-        const githubToken = process.env.GITHUB_TOKEN;
-        this.octokit = new Octokit({
-            auth: githubToken,
+    // Initialize Octokit with optional authentication
+    // If GITHUB_TOKEN is provided, use it for higher rate limits (5000/hour vs 60/hour)
+    const githubToken = process.env.GITHUB_TOKEN;
+    this.octokit = new Octokit({
+      auth: githubToken,
+    });
+
+    if (githubToken) {
+      console.log("GitHub token configured - higher rate limits available");
+    } else {
+      console.warn(
+        "No GitHub token configured - using unauthenticated API (60 requests/hour limit). " +
+          "Set GITHUB_TOKEN environment variable for higher limits.",
+      );
+    }
+
+    // Configure autoUpdater
+    autoUpdater.autoDownload = false;
+    autoUpdater.autoInstallOnAppQuit = true;
+
+    // Set up GitHub provider
+    autoUpdater.setFeedURL({
+      provider: "github",
+      owner: this.config.owner,
+      repo: this.config.repo,
+    });
+  }
+
+  static getInstance(): UpdaterService {
+    if (!UpdaterService.instance) {
+      UpdaterService.instance = new UpdaterService();
+    }
+    return UpdaterService.instance;
+  }
+
+  /**
+   * Get list of available branches/PRs to test
+   * Uses caching to avoid hitting rate limits
+   */
+  async getAvailableBranches(forceRefresh: boolean = false): Promise<BranchInfo[]> {
+    try {
+      // Check cache first
+      if (!forceRefresh && this.branchesCache) {
+        const age = Date.now() - this.branchesCache.timestamp;
+        if (age < this.CACHE_DURATION_MS) {
+          console.log(`Using cached branches list (age: ${Math.round(age / 1000)}s)`);
+          return this.branchesCache.data;
+        }
+      }
+
+      console.log("Fetching branches from GitHub API...");
+      const branches: BranchInfo[] = [];
+
+      // Get latest stable release
+      try {
+        const { data: latestRelease } = await this.octokit.repos.getLatestRelease({
+          owner: this.config.owner,
+          repo: this.config.repo,
         });
 
-        if (githubToken) {
-            console.log("GitHub token configured - higher rate limits available");
-        } else {
-            console.warn(
-                "No GitHub token configured - using unauthenticated API (60 requests/hour limit). " +
-                "Set GITHUB_TOKEN environment variable for higher limits.",
-            );
-        }
-
-        // Configure autoUpdater
-        autoUpdater.autoDownload = false;
-        autoUpdater.autoInstallOnAppQuit = true;
-
-        // Set up GitHub provider
-        autoUpdater.setFeedURL({
-            provider: "github",
-            owner: this.config.owner,
-            repo: this.config.repo,
+        branches.push({
+          name: "latest",
+          displayName: `Latest Release (${latestRelease.tag_name})`,
+          sha: latestRelease.target_commitish,
+          type: "release",
+          releaseTag: latestRelease.tag_name,
         });
-    }
+      } catch (err) {
+        console.warn("No stable releases found:", err);
+      }
 
-    static getInstance(): UpdaterService {
-        if (!UpdaterService.instance) {
-            UpdaterService.instance = new UpdaterService();
+      // Get all releases including pre-releases (these are PR builds)
+      const { data: releases } = await this.octokit.repos.listReleases({
+        owner: this.config.owner,
+        repo: this.config.repo,
+        per_page: 50,
+      });
+
+      // Filter pre-releases that are PR builds (tagged as pr-<number>)
+      for (const release of releases) {
+        if (release.prerelease && release.tag_name.startsWith("pr-")) {
+          const prNumber = Number.parseInt(release.tag_name.split("-")[1], 10);
+          if (!Number.isNaN(prNumber)) {
+            branches.push({
+              name: release.tag_name,
+              displayName: `PR #${prNumber}: ${release.name || "Untitled"}`,
+              sha: release.target_commitish,
+              type: "pr",
+              prNumber,
+              releaseTag: release.tag_name,
+            });
+          }
+        } else if (release.prerelease && release.tag_name.startsWith("branch-")) {
+          const branchName = release.tag_name.replace("branch-", "");
+          branches.push({
+            name: release.tag_name,
+            displayName: `Branch: ${branchName}`,
+            sha: release.target_commitish,
+            type: "branch",
+            releaseTag: release.tag_name,
+          });
         }
-        return UpdaterService.instance;
-    }
+      }
 
-    /**
-     * Get list of available branches/PRs to test
-     * Uses caching to avoid hitting rate limits
-     */
-    async getAvailableBranches(forceRefresh: boolean = false): Promise<BranchInfo[]> {
+      // Cache the results
+      this.branchesCache = {
+        data: branches,
+        timestamp: Date.now(),
+      };
+
+      console.log(`Fetched ${branches.length} branches/PRs from GitHub`);
+      return branches;
+    } catch (error: any) {
+      console.error("Failed to fetch branches:", error);
+
+      // Check if it's a rate limit error
+      if (error?.status === 403 && error?.message?.includes("rate limit")) {
+        // Try to get rate limit info
         try {
-            // Check cache first
-            if (!forceRefresh && this.branchesCache) {
-                const age = Date.now() - this.branchesCache.timestamp;
-                if (age < this.CACHE_DURATION_MS) {
-                    console.log(`Using cached branches list (age: ${Math.round(age / 1000)}s)`);
-                    return this.branchesCache.data;
-                }
-            }
+          const { data: rateLimit } = await this.octokit.rateLimit.get();
+          const resetDate = new Date(rateLimit.rate.reset * 1000);
+          const minutesUntilReset = Math.ceil((resetDate.getTime() - Date.now()) / 60000);
 
-            console.log("Fetching branches from GitHub API...");
-            const branches: BranchInfo[] = [];
+          throw new Error(
+            `GitHub API rate limit exceeded. ` +
+              `Limit resets in ${minutesUntilReset} minutes. ` +
+              `${rateLimit.rate.remaining}/${rateLimit.rate.limit} requests remaining. ` +
+              `\n\nTo avoid this, set a GITHUB_TOKEN environment variable for higher limits (5000/hour).`,
+          );
+        } catch (rateLimitError) {
+          // If we can't get rate limit info, return the cached data if available
+          if (this.branchesCache) {
+            console.warn("Rate limit hit, returning cached data");
+            return this.branchesCache.data;
+          }
 
-            // Get latest stable release
-            try {
-                const { data: latestRelease } = await this.octokit.repos.getLatestRelease({
-                    owner: this.config.owner,
-                    repo: this.config.repo,
-                });
-
-                branches.push({
-                    name: "latest",
-                    displayName: `Latest Release (${latestRelease.tag_name})`,
-                    sha: latestRelease.target_commitish,
-                    type: "release",
-                    releaseTag: latestRelease.tag_name,
-                });
-            } catch (err) {
-                console.warn("No stable releases found:", err);
-            }
-
-            // Get all releases including pre-releases (these are PR builds)
-            const { data: releases } = await this.octokit.repos.listReleases({
-                owner: this.config.owner,
-                repo: this.config.repo,
-                per_page: 50,
-            });
-
-            // Filter pre-releases that are PR builds (tagged as pr-<number>)
-            for (const release of releases) {
-                if (release.prerelease && release.tag_name.startsWith("pr-")) {
-                    const prNumber = Number.parseInt(release.tag_name.split("-")[1], 10);
-                    if (!Number.isNaN(prNumber)) {
-                        branches.push({
-                            name: release.tag_name,
-                            displayName: `PR #${prNumber}: ${release.name || "Untitled"}`,
-                            sha: release.target_commitish,
-                            type: "pr",
-                            prNumber,
-                            releaseTag: release.tag_name,
-                        });
-                    }
-                } else if (release.prerelease && release.tag_name.startsWith("branch-")) {
-                    const branchName = release.tag_name.replace("branch-", "");
-                    branches.push({
-                        name: release.tag_name,
-                        displayName: `Branch: ${branchName}`,
-                        sha: release.target_commitish,
-                        type: "branch",
-                        releaseTag: release.tag_name,
-                    });
-                }
-            }
-
-            // Cache the results
-            this.branchesCache = {
-                data: branches,
-                timestamp: Date.now(),
-            };
-
-            console.log(`Fetched ${branches.length} branches/PRs from GitHub`);
-            return branches;
-        } catch (error: any) {
-            console.error("Failed to fetch branches:", error);
-
-            // Check if it's a rate limit error
-            if (error?.status === 403 && error?.message?.includes("rate limit")) {
-                // Try to get rate limit info
-                try {
-                    const { data: rateLimit } = await this.octokit.rateLimit.get();
-                    const resetDate = new Date(rateLimit.rate.reset * 1000);
-                    const minutesUntilReset = Math.ceil((resetDate.getTime() - Date.now()) / 60000);
-
-                    throw new Error(
-                        `GitHub API rate limit exceeded. ` +
-                        `Limit resets in ${minutesUntilReset} minutes. ` +
-                        `${rateLimit.rate.remaining}/${rateLimit.rate.limit} requests remaining. ` +
-                        `\n\nTo avoid this, set a GITHUB_TOKEN environment variable for higher limits (5000/hour).`,
-                    );
-                } catch (rateLimitError) {
-                    // If we can't get rate limit info, return the cached data if available
-                    if (this.branchesCache) {
-                        console.warn("Rate limit hit, returning cached data");
-                        return this.branchesCache.data;
-                    }
-
-                    throw new Error(
-                        "GitHub API rate limit exceeded. Please wait a few minutes and try again. " +
-                        "\n\nTip: Set a GITHUB_TOKEN environment variable for higher limits (5000/hour instead of 60/hour).",
-                    );
-                }
-            }
-
-            // Return cached data if available for other errors
-            if (this.branchesCache) {
-                console.warn("API error, returning cached data:", error.message);
-                return this.branchesCache.data;
-            }
-
-            throw new Error(`Failed to fetch available branches: ${error.message || error}`);
+          throw new Error(
+            "GitHub API rate limit exceeded. Please wait a few minutes and try again. " +
+              "\n\nTip: Set a GITHUB_TOKEN environment variable for higher limits (5000/hour instead of 60/hour).",
+          );
         }
+      }
+
+      // Return cached data if available for other errors
+      if (this.branchesCache) {
+        console.warn("API error, returning cached data:", error.message);
+        return this.branchesCache.data;
+      }
+
+      throw new Error(`Failed to fetch available branches: ${error.message || error}`);
     }
+  }
 
-    /**
-     * Check for updates on the current channel
-     */
-    async checkForUpdates(channel: string = this.currentChannel): Promise<UpdateInfo | null> {
-        try {
-            this.currentChannel = channel;
+  /**
+   * Check for updates on the current channel
+   */
+  async checkForUpdates(channel: string = this.currentChannel): Promise<UpdateInfo | null> {
+    try {
+      this.currentChannel = channel;
 
-            // For non-latest channels, we need to manually check releases
-            if (channel !== "latest") {
-                const branches = await this.getAvailableBranches();
-                const targetBranch = branches.find((b) => b.name === channel);
+      // For non-latest channels, we need to manually check releases
+      if (channel !== "latest") {
+        const branches = await this.getAvailableBranches();
+        const targetBranch = branches.find((b) => b.name === channel);
 
-                if (!targetBranch || !targetBranch.releaseTag) {
-                    throw new Error(`Channel ${channel} not found`);
-                }
-
-                // Get the specific release
-                const { data: release } = await this.octokit.repos.getReleaseByTag({
-                    owner: this.config.owner,
-                    repo: this.config.repo,
-                    tag: targetBranch.releaseTag,
-                });
-
-                // Check if this version is different from current
-                const currentVersion = app.getVersion();
-                if (release.tag_name !== `v${currentVersion}` && release.tag_name !== currentVersion) {
-                    // There's an update available
-                    return {
-                        version: release.tag_name,
-                        releaseDate: release.published_at || new Date().toISOString(),
-                        releaseName: release.name || release.tag_name,
-                        releaseNotes: release.body || "",
-                    } as UpdateInfo;
-                }
-
-                return null;
-            }
-
-            // For latest channel, use standard autoUpdater
-            const result = await autoUpdater.checkForUpdates();
-            return result?.updateInfo || null;
-        } catch (error) {
-            console.error("Failed to check for updates:", error);
-            throw error;
+        if (!targetBranch || !targetBranch.releaseTag) {
+          throw new Error(`Channel ${channel} not found`);
         }
-    }
 
-    /**
-     * Download the update for the specified channel
-     */
-    async downloadUpdate(onProgress?: (progress: ProgressInfo) => void): Promise<void> {
-        return new Promise((resolve, reject) => {
-            if (onProgress) {
-                autoUpdater.on("download-progress", onProgress);
-            }
-
-            autoUpdater.once("update-downloaded", () => {
-                if (onProgress) {
-                    autoUpdater.removeListener("download-progress", onProgress);
-                }
-                resolve();
-            });
-
-            autoUpdater.once("error", (error) => {
-                if (onProgress) {
-                    autoUpdater.removeListener("download-progress", onProgress);
-                }
-                reject(error);
-            });
-
-            autoUpdater.downloadUpdate().catch(reject);
+        // Get the specific release
+        const { data: release } = await this.octokit.repos.getReleaseByTag({
+          owner: this.config.owner,
+          repo: this.config.repo,
+          tag: targetBranch.releaseTag,
         });
-    }
 
-    /**
-     * Install the downloaded update and restart the app
-     */
-    quitAndInstall(): void {
-        autoUpdater.quitAndInstall(false, true);
-    }
-
-    /**
-     * Switch to a different branch/PR channel
-     */
-    async switchChannel(channel: string): Promise<boolean> {
-        try {
-            this.currentChannel = channel;
-
-            // Check if update is available
-            const updateInfo = await this.checkForUpdates(channel);
-
-            if (updateInfo) {
-                return true; // Update available
-            }
-
-            return false; // Already on this version
-        } catch (error) {
-            console.error("Failed to switch channel:", error);
-            throw error;
+        // Check if this version is different from current
+        const currentVersion = app.getVersion();
+        if (release.tag_name !== `v${currentVersion}` && release.tag_name !== currentVersion) {
+          // There's an update available
+          return {
+            version: release.tag_name,
+            releaseDate: release.published_at || new Date().toISOString(),
+            releaseName: release.name || release.tag_name,
+            releaseNotes: release.body || "",
+          } as UpdateInfo;
         }
-    }
 
-    /**
-     * Get current app version
-     */
-    getCurrentVersion(): string {
-        return app.getVersion();
-    }
+        return null;
+      }
 
-    /**
-     * Get current channel
-     */
-    getCurrentChannel(): string {
-        return this.currentChannel;
+      // For latest channel, use standard autoUpdater
+      const result = await autoUpdater.checkForUpdates();
+      return result?.updateInfo || null;
+    } catch (error) {
+      console.error("Failed to check for updates:", error);
+      throw error;
     }
+  }
 
-    /**
-     * Set up auto-update checking (for the current channel)
-     */
-    setupAutoUpdate(intervalMs: number = 60000 * 30): void {
-        // Check every 30 minutes by default
-        setInterval(async () => {
-            try {
-                await this.checkForUpdates();
-            } catch (error) {
-                console.error("Auto-update check failed:", error);
-            }
-        }, intervalMs);
-    }
+  /**
+   * Download the update for the specified channel
+   */
+  async downloadUpdate(onProgress?: (progress: ProgressInfo) => void): Promise<void> {
+    return new Promise((resolve, reject) => {
+      if (onProgress) {
+        autoUpdater.on("download-progress", onProgress);
+      }
 
-    /**
-     * Clear the branches cache (useful for testing)
-     */
-    clearCache(): void {
-        this.branchesCache = null;
-        console.log("Branches cache cleared");
-    }
-
-    /**
-     * Get GitHub API rate limit information
-     */
-    async getRateLimitInfo(): Promise<{
-        limit: number;
-        remaining: number;
-        reset: Date;
-        used: number;
-    }> {
-        try {
-            const { data: rateLimit } = await this.octokit.rateLimit.get();
-            return {
-                limit: rateLimit.rate.limit,
-                remaining: rateLimit.rate.remaining,
-                reset: new Date(rateLimit.rate.reset * 1000),
-                used: rateLimit.rate.used,
-            };
-        } catch (error) {
-            console.error("Failed to get rate limit info:", error);
-            throw error;
+      autoUpdater.once("update-downloaded", () => {
+        if (onProgress) {
+          autoUpdater.removeListener("download-progress", onProgress);
         }
+        resolve();
+      });
+
+      autoUpdater.once("error", (error) => {
+        if (onProgress) {
+          autoUpdater.removeListener("download-progress", onProgress);
+        }
+        reject(error);
+      });
+
+      autoUpdater.downloadUpdate().catch(reject);
+    });
+  }
+
+  /**
+   * Install the downloaded update and restart the app
+   */
+  quitAndInstall(): void {
+    autoUpdater.quitAndInstall(false, true);
+  }
+
+  /**
+   * Switch to a different branch/PR channel
+   */
+  async switchChannel(channel: string): Promise<boolean> {
+    try {
+      this.currentChannel = channel;
+
+      // Check if update is available
+      const updateInfo = await this.checkForUpdates(channel);
+
+      if (updateInfo) {
+        return true; // Update available
+      }
+
+      return false; // Already on this version
+    } catch (error) {
+      console.error("Failed to switch channel:", error);
+      throw error;
     }
+  }
+
+  /**
+   * Get current app version
+   */
+  getCurrentVersion(): string {
+    return app.getVersion();
+  }
+
+  /**
+   * Get current channel
+   */
+  getCurrentChannel(): string {
+    return this.currentChannel;
+  }
+
+  /**
+   * Set up auto-update checking (for the current channel)
+   */
+  setupAutoUpdate(intervalMs: number = 60000 * 30): void {
+    // Check every 30 minutes by default
+    setInterval(async () => {
+      try {
+        await this.checkForUpdates();
+      } catch (error) {
+        console.error("Auto-update check failed:", error);
+      }
+    }, intervalMs);
+  }
+
+  /**
+   * Clear the branches cache (useful for testing)
+   */
+  clearCache(): void {
+    this.branchesCache = null;
+    console.log("Branches cache cleared");
+  }
+
+  /**
+   * Get GitHub API rate limit information
+   */
+  async getRateLimitInfo(): Promise<{
+    limit: number;
+    remaining: number;
+    reset: Date;
+    used: number;
+  }> {
+    try {
+      const { data: rateLimit } = await this.octokit.rateLimit.get();
+      return {
+        limit: rateLimit.rate.limit,
+        remaining: rateLimit.rate.remaining,
+        reset: new Date(rateLimit.rate.reset * 1000),
+        used: rateLimit.rate.used,
+      };
+    } catch (error) {
+      console.error("Failed to get rate limit info:", error);
+      throw error;
+    }
+  }
 }

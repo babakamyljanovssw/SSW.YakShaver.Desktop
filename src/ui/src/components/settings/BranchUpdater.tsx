@@ -1,4 +1,5 @@
-import { useState, useEffect } from "react";
+import { useEffect, useState } from "react";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -8,7 +9,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Badge } from "@/components/ui/badge";
 import { ipcClient } from "@/services/ipc-client";
 
 interface BranchInfo {
@@ -78,12 +78,12 @@ export const BranchUpdater = () => {
       } else if (branchesResult.error) {
         const errorMsg = branchesResult.error;
         setError(errorMsg);
-        
+
         // If it's a rate limit error, show helpful info
         if (errorMsg.includes("rate limit")) {
           setRateLimitInfo(
             "💡 Tip: The app is using GitHub's public API which is limited to 60 requests per hour. " +
-            "To get 5,000 requests per hour, add a GITHUB_TOKEN to your .env file."
+              "To get 5,000 requests per hour, add a GITHUB_TOKEN to your .env file.",
           );
         }
       }
@@ -100,11 +100,11 @@ export const BranchUpdater = () => {
       setError(null);
 
       const result = await ipcClient.updater.checkForUpdates(selectedChannel);
-      
+
       if (result.success) {
         setUpdateAvailable(!!result.updateAvailable);
         setUpdateInfo(result.updateInfo);
-        
+
         if (!result.updateAvailable) {
           alert("You are already on the latest version for this channel.");
         }
@@ -124,11 +124,11 @@ export const BranchUpdater = () => {
       setError(null);
 
       const result = await ipcClient.updater.switchChannel(selectedChannel);
-      
+
       if (result.success) {
         setCurrentChannel(selectedChannel);
         setUpdateAvailable(!!result.updateAvailable);
-        
+
         if (result.updateAvailable) {
           alert("Update available! Click 'Download Update' to download and install.");
         } else {
@@ -151,7 +151,7 @@ export const BranchUpdater = () => {
       setDownloadProgress(null);
 
       const result = await ipcClient.updater.downloadUpdate();
-      
+
       if (result.success) {
         alert("Update downloaded successfully! Click 'Install & Restart' to apply the update.");
       } else if (result.error) {
@@ -167,9 +167,9 @@ export const BranchUpdater = () => {
   const handleInstallUpdate = async () => {
     try {
       const confirmed = confirm(
-        "The app will restart to install the update. Make sure you've saved your work. Continue?"
+        "The app will restart to install the update. Make sure you've saved your work. Continue?",
       );
-      
+
       if (!confirmed) return;
 
       setError(null);
@@ -211,10 +211,12 @@ export const BranchUpdater = () => {
           </div>
           <div>
             <p className="text-sm font-medium">Current Channel</p>
-            <Badge variant={getBranchBadgeVariant(
-              branches.find(b => b.name === currentChannel)?.type || "release"
-            )}>
-              {branches.find(b => b.name === currentChannel)?.displayName || currentChannel}
+            <Badge
+              variant={getBranchBadgeVariant(
+                branches.find((b) => b.name === currentChannel)?.type || "release",
+              )}
+            >
+              {branches.find((b) => b.name === currentChannel)?.displayName || currentChannel}
             </Badge>
           </div>
         </div>
@@ -319,11 +321,7 @@ export const BranchUpdater = () => {
           </Button>
 
           {selectedChannel !== currentChannel && (
-            <Button
-              onClick={handleSwitchChannel}
-              disabled={checking || downloading}
-              size="sm"
-            >
+            <Button onClick={handleSwitchChannel} disabled={checking || downloading} size="sm">
               {checking ? "Switching..." : "Switch Channel"}
             </Button>
           )}
@@ -338,21 +336,13 @@ export const BranchUpdater = () => {
           </Button>
 
           {updateAvailable && !downloading && (
-            <Button
-              onClick={handleDownloadUpdate}
-              disabled={downloading}
-              size="sm"
-            >
+            <Button onClick={handleDownloadUpdate} disabled={downloading} size="sm">
               Download Update
             </Button>
           )}
 
           {updateAvailable && !downloading && downloadProgress && (
-            <Button
-              onClick={handleInstallUpdate}
-              variant="destructive"
-              size="sm"
-            >
+            <Button onClick={handleInstallUpdate} variant="destructive" size="sm">
               Install & Restart
             </Button>
           )}
@@ -367,12 +357,9 @@ export const BranchUpdater = () => {
             When you switch to a PR or branch channel, you'll automatically receive updates when new
             commits are pushed.
           </p>
-          <p>
-            Switch back to "Latest Release" when you want to return to the stable version.
-          </p>
+          <p>Switch back to "Latest Release" when you want to return to the stable version.</p>
         </div>
       </CardContent>
     </Card>
   );
 };
-

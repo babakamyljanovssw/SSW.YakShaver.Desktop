@@ -1,7 +1,7 @@
 import { ipcMain } from "electron";
-import { IPC_CHANNELS } from "./channels";
-import { UpdaterService } from "../services/updater/updater-service";
 import type { ProgressInfo } from "electron-updater";
+import { UpdaterService } from "../services/updater/updater-service";
+import { IPC_CHANNELS } from "./channels";
 
 export class UpdaterIPCHandlers {
   private updaterService: UpdaterService;
@@ -110,4 +110,3 @@ export class UpdaterIPCHandlers {
     });
   }
 }
-

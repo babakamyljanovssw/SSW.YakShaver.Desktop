@@ -2,11 +2,11 @@ import { Toaster } from "sonner";
 import "./App.css";
 import logoImage from "/logos/YakShaver-Vertical-Color-Darkmode.svg?url";
 import { VideoHostPanel } from "./components/layout/VideoHostPanel";
-import { WorkflowProgressPanel } from "./components/workflow/WorkflowProgressPanel";
-import { FinalResultPanel } from "./components/workflow/FinalResultPanel";
 import { ScreenRecorder } from "./components/recording/ScreenRecorder";
-import { YouTubeAuthProvider } from "./contexts/YouTubeAuthContext";
 import { SettingsButton } from "./components/settings/SettingsPanel";
+import { FinalResultPanel } from "./components/workflow/FinalResultPanel";
+import { WorkflowProgressPanel } from "./components/workflow/WorkflowProgressPanel";
+import { YouTubeAuthProvider } from "./contexts/YouTubeAuthContext";
 
 export default function App() {
   return (
