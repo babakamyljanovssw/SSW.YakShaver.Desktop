@@ -35,8 +35,16 @@ jobs:
           YOUTUBE_CLIENT_ID: ${{ secrets.YOUTUBE_CLIENT_ID }}
           YOUTUBE_CLIENT_SECRET: ${{ secrets.YOUTUBE_CLIENT_SECRET }}
         run: |
-          "YOUTUBE_CLIENT_ID=$env:YOUTUBE_CLIENT_ID" | Out-File -FilePath ".env" -Encoding utf8 -NoNewline
-          Add-Content -Path ".env" -Value "`nYOUTUBE_CLIENT_SECRET=$env:YOUTUBE_CLIENT_SECRET"
+          # Create .env with optional YouTube credentials
+          if ($env:YOUTUBE_CLIENT_ID -and $env:YOUTUBE_CLIENT_SECRET) {
+            "YOUTUBE_CLIENT_ID=$env:YOUTUBE_CLIENT_ID" | Out-File -FilePath ".env" -Encoding utf8 -NoNewline
+            Add-Content -Path ".env" -Value "`nYOUTUBE_CLIENT_SECRET=$env:YOUTUBE_CLIENT_SECRET"
+            Write-Host "YouTube credentials configured"
+          } else {
+            # Create empty .env file
+            "" | Out-File -FilePath ".env" -Encoding utf8 -NoNewline
+            Write-Host "YouTube credentials not set - app will work without YouTube upload feature"
+          }
 
       - name: Install dependencies
         run: npm ci --prefer-offline
@@ -45,11 +53,8 @@ jobs:
         run: npm ci --prefer-offline
         working-directory: src/ui
 
-      - name: Build app
-        run: npm run build && cd src/ui && npm run build
-
-      - name: Package app
-        run: npm run package
+      - name: Build and make app
+        run: npm run make
 
       - name: Upload Windows artifact
         uses: actions/upload-artifact@v4
@@ -75,7 +80,15 @@ jobs:
           YOUTUBE_CLIENT_ID: ${{ secrets.YOUTUBE_CLIENT_ID }}
           YOUTUBE_CLIENT_SECRET: ${{ secrets.YOUTUBE_CLIENT_SECRET }}
         run: |
-          printf "YOUTUBE_CLIENT_ID=%s\nYOUTUBE_CLIENT_SECRET=%s\n" "$YOUTUBE_CLIENT_ID" "$YOUTUBE_CLIENT_SECRET" > .env
+          # Create .env with optional YouTube credentials
+          if [ -n "$YOUTUBE_CLIENT_ID" ] && [ -n "$YOUTUBE_CLIENT_SECRET" ]; then
+            printf "YOUTUBE_CLIENT_ID=%s\nYOUTUBE_CLIENT_SECRET=%s\n" "$YOUTUBE_CLIENT_ID" "$YOUTUBE_CLIENT_SECRET" > .env
+            echo "YouTube credentials configured"
+          else
+            # Create empty .env file
+            touch .env
+            echo "YouTube credentials not set - app will work without YouTube upload feature"
+          fi
 
       - name: Install dependencies
         run: npm ci --prefer-offline
@@ -84,11 +97,8 @@ jobs:
         run: npm ci --prefer-offline
         working-directory: src/ui
 
-      - name: Build app
-        run: npm run build && cd src/ui && npm run build
-
-      - name: Package app
-        run: npm run package
+      - name: Build and make app
+        run: npm run make
 
       - name: Upload macOS artifact
         uses: actions/upload-artifact@v4
