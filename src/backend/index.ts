@@ -2,7 +2,6 @@ import { join } from "node:path";
 import { config as dotenvConfig } from "dotenv";
 import { app, BrowserWindow, session } from "electron";
 import tmp from "tmp";
-import { updateElectronApp } from "update-electron-app";
 import { registerEventForwarders } from "./events/event-forwarder";
 import { AuthIPCHandlers } from "./ipc/auth-handlers";
 import { McpIPCHandlers } from "./ipc/mcp-handlers";
@@ -14,8 +13,8 @@ import { createMcpOrchestrator } from "./services/mcp/mcp-orchestrator-factory";
 import { RecordingControlBarWindow } from "./services/recording/control-bar-window";
 import { RecordingService } from "./services/recording/recording-service";
 import { ProcessVideoIPCHandlers } from "./ipc/process-video-handlers";
-
-updateElectronApp();
+import { UpdaterIPCHandlers } from "./ipc/updater-handlers";
+import { UpdaterService } from "./services/updater/updater-service";
 
 const isDev = process.env.NODE_ENV === "development";
 
@@ -74,6 +73,7 @@ let _llmSettingsHandlers: LLMSettingsIPCHandlers;
 let _mcpHandlers: McpIPCHandlers;
 let _customPromptSettingsHandlers: CustomPromptSettingsIPCHandlers;
 let _processVideoHandlers: ProcessVideoIPCHandlers;
+let _updaterHandlers: UpdaterIPCHandlers;
 let unregisterEventForwarders: (() => void) | undefined;
 
 app.whenReady().then(async () => {
@@ -100,6 +100,14 @@ app.whenReady().then(async () => {
   const mcpOrchestrator = await createMcpOrchestrator({ eagerCreate: true });
   _mcpHandlers = new McpIPCHandlers(mcpOrchestrator);
   _customPromptSettingsHandlers = new CustomPromptSettingsIPCHandlers();
+
+  // Initialize updater service
+  _updaterHandlers = new UpdaterIPCHandlers();
+
+  // Setup auto-update checking (check every 30 minutes)
+  if (!isDev) {
+    UpdaterService.getInstance().setupAutoUpdate(1000 * 60 * 30);
+  }
 
   // Pre-initialize control bar window for faster display
   RecordingControlBarWindow.getInstance().initialize(isDev);

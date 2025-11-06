@@ -61,4 +61,13 @@ export const IPC_CHANNELS = {
   SETTINGS_UPDATE_PROMPT: "settings:update-prompt",
   SETTINGS_DELETE_PROMPT: "settings:delete-prompt",
   SETTINGS_SET_ACTIVE_PROMPT: "settings:set-active-prompt",
+
+  // Updater
+  UPDATER_GET_BRANCHES: "updater:get-branches",
+  UPDATER_GET_CURRENT_INFO: "updater:get-current-info",
+  UPDATER_CHECK_FOR_UPDATES: "updater:check-for-updates",
+  UPDATER_DOWNLOAD_UPDATE: "updater:download-update",
+  UPDATER_INSTALL_UPDATE: "updater:install-update",
+  UPDATER_SWITCH_CHANNEL: "updater:switch-channel",
+  UPDATER_DOWNLOAD_PROGRESS: "updater:download-progress",
 } as const;

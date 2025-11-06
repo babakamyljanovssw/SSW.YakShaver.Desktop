@@ -1,0 +1,204 @@
+name: Build PR
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+  push:
+    branches:
+      - '**'
+      - '!main'
+      - '!master'
+
+permissions:
+  contents: write
+
+env:
+  APP_NAME: SSW.YakShaver
+  NODE_VERSION: 20
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      # TODO: Remove this step once this PBI is done: https://github.com/SSWConsulting/SSW.YakShaver/issues/3095
+      - name: Create .env from secrets
+        shell: pwsh
+        env:
+          YOUTUBE_CLIENT_ID: ${{ secrets.YOUTUBE_CLIENT_ID }}
+          YOUTUBE_CLIENT_SECRET: ${{ secrets.YOUTUBE_CLIENT_SECRET }}
+        run: |
+          "YOUTUBE_CLIENT_ID=$env:YOUTUBE_CLIENT_ID" | Out-File -FilePath ".env" -Encoding utf8 -NoNewline
+          Add-Content -Path ".env" -Value "`nYOUTUBE_CLIENT_SECRET=$env:YOUTUBE_CLIENT_SECRET"
+
+      - name: Install dependencies
+        run: npm ci --prefer-offline
+
+      - name: Install UI dependencies
+        run: npm ci --prefer-offline
+        working-directory: src/ui
+
+      - name: Build app
+        run: npm run build && cd src/ui && npm run build
+
+      - name: Package app
+        run: npm run package
+
+      - name: Upload Windows artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-build-${{ github.sha }}
+          path: out/make/**/*.exe
+          retention-days: 30
+
+  build-macos:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      # TODO: Remove this step once this PBI is done: https://github.com/SSWConsulting/SSW.YakShaver/issues/3095
+      - name: Create .env from secrets
+        env:
+          YOUTUBE_CLIENT_ID: ${{ secrets.YOUTUBE_CLIENT_ID }}
+          YOUTUBE_CLIENT_SECRET: ${{ secrets.YOUTUBE_CLIENT_SECRET }}
+        run: |
+          printf "YOUTUBE_CLIENT_ID=%s\nYOUTUBE_CLIENT_SECRET=%s\n" "$YOUTUBE_CLIENT_ID" "$YOUTUBE_CLIENT_SECRET" > .env
+
+      - name: Install dependencies
+        run: npm ci --prefer-offline
+
+      - name: Install UI dependencies
+        run: npm ci --prefer-offline
+        working-directory: src/ui
+
+      - name: Build app
+        run: npm run build && cd src/ui && npm run build
+
+      - name: Package app
+        run: npm run package
+
+      - name: Upload macOS artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: macos-build-${{ github.sha }}
+          path: out/make/**/*.zip
+          retention-days: 30
+
+  publish-pr-release:
+    needs: [build-windows, build-macos]
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download Windows artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: windows-build-${{ github.sha }}
+          path: ./artifacts/windows
+
+      - name: Download macOS artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: macos-build-${{ github.sha }}
+          path: ./artifacts/macos
+
+      - name: Get PR number
+        id: pr
+        run: echo "number=${{ github.event.pull_request.number }}" >> $GITHUB_OUTPUT
+
+      - name: Create or update PR pre-release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: pr-${{ steps.pr.outputs.number }}
+          name: "PR #${{ steps.pr.outputs.number }}: ${{ github.event.pull_request.title }}"
+          body: |
+            ## Test Build for PR #${{ steps.pr.outputs.number }}
+            
+            **Branch:** `${{ github.head_ref }}`
+            **Commit:** ${{ github.sha }}
+            
+            ### How to Test
+            1. Download the installer for your platform below
+            2. Install the app
+            3. In the app settings, switch to the "PR #${{ steps.pr.outputs.number }}" channel
+            4. The app will automatically update when this PR is updated
+            
+            ### Changes
+            ${{ github.event.pull_request.body }}
+            
+            ---
+            
+            This is an automated pre-release build for testing purposes.
+          files: |
+            ./artifacts/**/*
+          prerelease: true
+          draft: false
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+  publish-branch-release:
+    needs: [build-windows, build-macos]
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && !contains(github.ref, 'refs/heads/main') && !contains(github.ref, 'refs/heads/master')
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download Windows artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: windows-build-${{ github.sha }}
+          path: ./artifacts/windows
+
+      - name: Download macOS artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: macos-build-${{ github.sha }}
+          path: ./artifacts/macos
+
+      - name: Get branch name
+        id: branch
+        run: |
+          BRANCH_NAME=${GITHUB_REF#refs/heads/}
+          # Replace slashes with dashes for tag name
+          SAFE_BRANCH_NAME=$(echo "$BRANCH_NAME" | sed 's/\//-/g')
+          echo "name=$SAFE_BRANCH_NAME" >> $GITHUB_OUTPUT
+
+      - name: Create or update branch pre-release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: branch-${{ steps.branch.outputs.name }}
+          name: "Branch: ${{ steps.branch.outputs.name }}"
+          body: |
+            ## Test Build for Branch `${{ steps.branch.outputs.name }}`
+            
+            **Commit:** ${{ github.sha }}
+            **Commit Message:** ${{ github.event.head_commit.message }}
+            
+            ### How to Test
+            1. Download the installer for your platform below
+            2. Install the app
+            3. In the app settings, switch to the "branch-${{ steps.branch.outputs.name }}" channel
+            4. The app will automatically update when this branch is updated
+            
+            ---
+            
+            This is an automated pre-release build for testing purposes.
+          files: |
+            ./artifacts/**/*
+          prerelease: true
+          draft: false
+          token: ${{ secrets.GITHUB_TOKEN }}
+

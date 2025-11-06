@@ -63,7 +63,7 @@ module.exports = {
       name: "@electron-forge/publisher-github",
       config: {
         repository: {
-          owner: "SSWConsulting",
+          owner: "babakamyljanovssw",
           name: "SSW.YakShaver.Desktop",
         },
         prerelease: false,

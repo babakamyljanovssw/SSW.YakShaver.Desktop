@@ -38,15 +38,16 @@
     "@azure/openai": "^2.0.0",
     "@ffmpeg-installer/ffmpeg": "^1.1.0",
     "@modelcontextprotocol/sdk": "^1.20.0",
+    "@octokit/rest": "^21.0.0",
     "dotenv": "^17.2.2",
     "electron-squirrel-startup": "^1.0.1",
     "electron-store": "^11.0.2",
+    "electron-updater": "^6.6.2",
     "get-port": "^7.1.0",
     "google-auth-library": "^10.3.0",
     "googleapis": "^160.0.0",
     "openai": "^6.3.0",
-    "tmp": "^0.2.5",
-    "update-electron-app": "^3.1.1"
+    "tmp": "^0.2.5"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.2.4",
