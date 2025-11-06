@@ -208,17 +208,15 @@ export class UpdaterService {
                     throw new Error(`Channel ${channel} not found`);
                 }
 
-                // Get the specific release
                 const { data: release } = await this.octokit.repos.getReleaseByTag({
                     owner: this.config.owner,
                     repo: this.config.repo,
                     tag: targetBranch.releaseTag,
                 });
 
-                // Check if this version is different from current
                 const currentVersion = app.getVersion();
                 if (release.tag_name !== `v${currentVersion}` && release.tag_name !== currentVersion) {
-                    // Configure autoUpdater to point to this specific release
+                    // Configure autoUpdater for this release
                     autoUpdater.setFeedURL({
                         provider: "github",
                         owner: this.config.owner,
@@ -226,38 +224,20 @@ export class UpdaterService {
                         channel: release.tag_name,
                     });
 
-                    // Force electron-updater to check this specific release
-                    // This is required before downloadUpdate() can be called
-                    try {
-                        const checkResult = await autoUpdater.checkForUpdates();
-                        console.log("Update check completed for channel:", channel);
+                    const checkResult = await autoUpdater.checkForUpdates();
+                    const updateInfo: UpdateInfo = checkResult?.updateInfo || {
+                        version: release.tag_name,
+                        releaseDate: release.published_at || new Date().toISOString(),
+                        releaseName: release.name || release.tag_name,
+                        releaseNotes: release.body || "",
+                    } as UpdateInfo;
 
-                        // Store the update check result
-                        this.lastUpdateCheck = {
-                            channel,
-                            updateInfo: checkResult?.updateInfo || {
-                                version: release.tag_name,
-                                releaseDate: release.published_at || new Date().toISOString(),
-                                releaseName: release.name || release.tag_name,
-                                releaseNotes: release.body || "",
-                            } as UpdateInfo,
-                        };
-                    } catch (err) {
-                        console.warn("autoUpdater check failed, but continuing:", err);
-                        // Still store the update info even if check failed
-                        this.lastUpdateCheck = {
-                            channel,
-                            updateInfo: {
-                                version: release.tag_name,
-                                releaseDate: release.published_at || new Date().toISOString(),
-                                releaseName: release.name || release.tag_name,
-                                releaseNotes: release.body || "",
-                            } as UpdateInfo,
-                        };
-                    }
+                    this.lastUpdateCheck = {
+                        channel,
+                        updateInfo,
+                    };
 
-                    // Return the update info
-                    return this.lastUpdateCheck.updateInfo;
+                    return updateInfo;
                 }
 
                 this.lastUpdateCheck = { channel, updateInfo: null };
@@ -290,11 +270,13 @@ export class UpdaterService {
      */
     async downloadUpdate(onProgress?: (progress: ProgressInfo) => void): Promise<void> {
         // Ensure we've checked for updates first
-        // electron-updater requires checkForUpdates() to be called before downloadUpdate()
         if (!this.lastUpdateCheck || this.lastUpdateCheck.channel !== this.currentChannel) {
             console.log("Checking for updates before download...");
             try {
-                await this.checkForUpdates(this.currentChannel);
+                const updateInfo = await this.checkForUpdates(this.currentChannel);
+                if (!updateInfo) {
+                    throw new Error("No update available to download.");
+                }
             } catch (error) {
                 throw new Error(`Failed to check for updates: ${error}`);
             }
@@ -305,7 +287,6 @@ export class UpdaterService {
             throw new Error("No update available to download. Please check for updates first.");
         }
 
-        // Ensure feed URL is configured
         if (this.currentChannel !== "latest") {
             const branches = await this.getAvailableBranches();
             const targetBranch = branches.find((b) => b.name === this.currentChannel);
@@ -316,6 +297,15 @@ export class UpdaterService {
                     repo: this.config.repo,
                     channel: targetBranch.releaseTag,
                 });
+
+                if (app.isPackaged) {
+                    await autoUpdater.checkForUpdates();
+                } else {
+                    throw new Error(
+                        "Updates can only be downloaded in packaged apps. " +
+                        "Please package the app or download manually from GitHub releases."
+                    );
+                }
             }
         }
 
