@@ -78,7 +78,9 @@ export const BranchUpdater = () => {
 
         // If current channel is "latest" but no latest release exists, use first available branch
         if (infoResult.channel === "latest" && branchesResult.branches.length > 0) {
-          const hasLatest = branchesResult.branches.some(b => b.name === "latest" || b.type === "release");
+          const hasLatest = branchesResult.branches.some(
+            (b) => b.name === "latest" || b.type === "release",
+          );
           if (!hasLatest) {
             // Use first available branch as current
             const firstBranch = branchesResult.branches[0];
@@ -94,7 +96,7 @@ export const BranchUpdater = () => {
         if (errorMsg.includes("rate limit")) {
           setRateLimitInfo(
             "💡 Tip: The app is using GitHub's public API which is limited to 60 requests per hour. " +
-            "To get 5,000 requests per hour, add a GITHUB_TOKEN to your .env file.",
+              "To get 5,000 requests per hour, add a GITHUB_TOKEN to your .env file.",
           );
         }
       }
@@ -242,7 +244,10 @@ export const BranchUpdater = () => {
             onValueChange={setSelectedChannel}
             disabled={loading || checking || downloading}
           >
-            <SelectTrigger id="branch-select" className="bg-black/40 cursor-pointer border border-white/20 text-white">
+            <SelectTrigger
+              id="branch-select"
+              className="bg-black/40 cursor-pointer border border-white/20 text-white"
+            >
               <SelectValue placeholder="Select a branch or PR" />
             </SelectTrigger>
             <SelectContent>
@@ -373,7 +378,8 @@ export const BranchUpdater = () => {
         {/* Info Box */}
         <div className="p-3 bg-neutral-800/50 border border-neutral-800 rounded-lg text-xs text-neutral-400 space-y-1">
           <p>
-            <strong className="text-white">💡 Tip:</strong> Select a PR to test changes before they're merged.
+            <strong className="text-white">💡 Tip:</strong> Select a PR to test changes before
+            they're merged.
           </p>
           <p>
             When you switch to a PR or branch channel, you'll automatically receive updates when new

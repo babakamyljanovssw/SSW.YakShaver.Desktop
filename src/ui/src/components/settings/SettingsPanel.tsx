@@ -1,5 +1,5 @@
 import { Settings as SettingsIcon, X } from "lucide-react";
-import { useState, useEffect } from "react";
+import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
@@ -54,10 +54,11 @@ export const SettingsPanel = ({ onClose }: SettingsPanelProps) => {
                 <button
                   key={tab.id}
                   onClick={() => setActiveTab(tab.id)}
-                  className={`w-full text-left px-3 py-2 rounded-md text-sm transition-colors ${activeTab === tab.id
-                    ? "bg-neutral-800 text-white font-medium"
-                    : "text-neutral-400 hover:text-white hover:bg-neutral-800/50"
-                    }`}
+                  className={`w-full text-left px-3 py-2 rounded-md text-sm transition-colors ${
+                    activeTab === tab.id
+                      ? "bg-neutral-800 text-white font-medium"
+                      : "text-neutral-400 hover:text-white hover:bg-neutral-800/50"
+                  }`}
                 >
                   {tab.label}
                 </button>
