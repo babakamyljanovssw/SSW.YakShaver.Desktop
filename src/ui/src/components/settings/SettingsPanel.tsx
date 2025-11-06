@@ -1,5 +1,5 @@
 import { Settings as SettingsIcon, X } from "lucide-react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
@@ -25,7 +25,10 @@ export const SettingsPanel = ({ onClose }: SettingsPanelProps) => {
   ];
 
   return (
-    <Card className="w-full max-w-4xl bg-black/20 backdrop-blur-sm border-white/10">
+    <Card
+      className="w-full bg-neutral-900 text-neutral-100 border-neutral-800 shadow-2xl"
+      onClick={(e) => e.stopPropagation()}
+    >
       <CardHeader>
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
@@ -36,7 +39,7 @@ export const SettingsPanel = ({ onClose }: SettingsPanelProps) => {
             variant="ghost"
             size="icon"
             onClick={onClose}
-            className="text-white/60 hover:text-white hover:bg-white/10"
+            className="text-neutral-400 hover:text-white hover:bg-neutral-800"
           >
             <X className="size-4" />
           </Button>
@@ -51,11 +54,10 @@ export const SettingsPanel = ({ onClose }: SettingsPanelProps) => {
                 <button
                   key={tab.id}
                   onClick={() => setActiveTab(tab.id)}
-                  className={`w-full text-left px-3 py-2 rounded-md text-sm transition-colors ${
-                    activeTab === tab.id
-                      ? "bg-white/10 text-white font-medium"
-                      : "text-white/60 hover:text-white hover:bg-white/5"
-                  }`}
+                  className={`w-full text-left px-3 py-2 rounded-md text-sm transition-colors ${activeTab === tab.id
+                    ? "bg-neutral-800 text-white font-medium"
+                    : "text-neutral-400 hover:text-white hover:bg-neutral-800/50"
+                    }`}
                 >
                   {tab.label}
                 </button>
@@ -63,10 +65,10 @@ export const SettingsPanel = ({ onClose }: SettingsPanelProps) => {
             </nav>
           </div>
 
-          <Separator orientation="vertical" className="bg-white/10" />
+          <Separator orientation="vertical" className="bg-neutral-800" />
 
           {/* Content */}
-          <div className="flex-1 min-h-[500px] max-h-[600px] overflow-y-auto">
+          <div className="flex-1 min-h-[500px] max-h-[70vh] overflow-y-auto pr-2">
             {activeTab === "branch-updater" && <BranchUpdater />}
             {activeTab === "llm" && <LLMKeyManager />}
             {activeTab === "mcp" && <McpServerManager />}
@@ -82,10 +84,46 @@ export const SettingsPanel = ({ onClose }: SettingsPanelProps) => {
 export const SettingsButton = () => {
   const [showSettings, setShowSettings] = useState(false);
 
+  // Lock body scroll when settings modal is open
+  useEffect(() => {
+    if (showSettings) {
+      // Save current scroll position
+      const scrollY = window.scrollY;
+      // Lock body scroll
+      document.body.style.position = "fixed";
+      document.body.style.top = `-${scrollY}px`;
+      document.body.style.width = "100%";
+      document.body.style.overflow = "hidden";
+
+      return () => {
+        // Restore scroll position when modal closes
+        document.body.style.position = "";
+        document.body.style.top = "";
+        document.body.style.width = "";
+        document.body.style.overflow = "";
+        window.scrollTo(0, scrollY);
+      };
+    }
+  }, [showSettings]);
+
+  const handleClose = () => {
+    setShowSettings(false);
+  };
+
   if (showSettings) {
     return (
-      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
-        <SettingsPanel onClose={() => setShowSettings(false)} />
+      <div
+        className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4 overflow-y-auto"
+        onClick={(e) => {
+          // Close when clicking the backdrop
+          if (e.target === e.currentTarget) {
+            handleClose();
+          }
+        }}
+      >
+        <div className="w-full max-w-4xl my-auto">
+          <SettingsPanel onClose={handleClose} />
+        </div>
       </div>
     );
   }

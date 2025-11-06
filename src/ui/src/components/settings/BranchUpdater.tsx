@@ -75,6 +75,17 @@ export const BranchUpdater = () => {
       const branchesResult = await ipcClient.updater.getBranches();
       if (branchesResult.success && branchesResult.branches) {
         setBranches(branchesResult.branches);
+
+        // If current channel is "latest" but no latest release exists, use first available branch
+        if (infoResult.channel === "latest" && branchesResult.branches.length > 0) {
+          const hasLatest = branchesResult.branches.some(b => b.name === "latest" || b.type === "release");
+          if (!hasLatest) {
+            // Use first available branch as current
+            const firstBranch = branchesResult.branches[0];
+            setCurrentChannel(firstBranch.name);
+            setSelectedChannel(firstBranch.name);
+          }
+        }
       } else if (branchesResult.error) {
         const errorMsg = branchesResult.error;
         setError(errorMsg);
@@ -83,7 +94,7 @@ export const BranchUpdater = () => {
         if (errorMsg.includes("rate limit")) {
           setRateLimitInfo(
             "💡 Tip: The app is using GitHub's public API which is limited to 60 requests per hour. " +
-              "To get 5,000 requests per hour, add a GITHUB_TOKEN to your .env file.",
+            "To get 5,000 requests per hour, add a GITHUB_TOKEN to your .env file.",
           );
         }
       }
@@ -194,23 +205,23 @@ export const BranchUpdater = () => {
   };
 
   return (
-    <Card>
+    <Card className="bg-transparent border-0 shadow-none">
       <CardHeader>
-        <CardTitle>Branch & Update Manager</CardTitle>
-        <CardDescription>
+        <CardTitle className="text-white text-xl">Branch & Update Manager</CardTitle>
+        <CardDescription className="text-neutral-400">
           Test different branches and PRs before they're merged to main. Select a branch or PR to
           receive automatic updates when it changes.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
         {/* Current Version Info */}
-        <div className="flex items-center justify-between p-3 bg-muted rounded-lg">
+        <div className="flex items-center justify-between p-3 bg-neutral-800/50 rounded-lg border border-neutral-800">
           <div>
-            <p className="text-sm font-medium">Current Version</p>
-            <p className="text-xs text-muted-foreground">{currentVersion}</p>
+            <p className="text-sm font-medium text-white">Current Version</p>
+            <p className="text-xs text-neutral-400">{currentVersion}</p>
           </div>
           <div>
-            <p className="text-sm font-medium">Current Channel</p>
+            <p className="text-sm font-medium text-white">Current Channel</p>
             <Badge
               variant={getBranchBadgeVariant(
                 branches.find((b) => b.name === currentChannel)?.type || "release",
@@ -223,7 +234,7 @@ export const BranchUpdater = () => {
 
         {/* Branch Selection */}
         <div className="space-y-2">
-          <label htmlFor="branch-select" className="text-sm font-medium">
+          <label htmlFor="branch-select" className="text-sm font-medium text-white">
             Select Branch or PR
           </label>
           <Select
@@ -231,55 +242,56 @@ export const BranchUpdater = () => {
             onValueChange={setSelectedChannel}
             disabled={loading || checking || downloading}
           >
-            <SelectTrigger id="branch-select">
+            <SelectTrigger id="branch-select" className="bg-black/40 cursor-pointer border border-white/20 text-white">
               <SelectValue placeholder="Select a branch or PR" />
             </SelectTrigger>
             <SelectContent>
-              {branches.map((branch) => (
-                <SelectItem key={branch.name} value={branch.name}>
-                  <div className="flex items-center gap-2">
-                    <Badge variant={getBranchBadgeVariant(branch.type)} className="text-xs">
-                      {branch.type.toUpperCase()}
-                    </Badge>
-                    <span>{branch.displayName}</span>
-                  </div>
-                </SelectItem>
-              ))}
+              {branches.length === 0 ? (
+                <div className="p-3 text-sm text-neutral-400 text-center">
+                  No branches available. Create a PR to test it here!
+                </div>
+              ) : (
+                branches.map((branch) => (
+                  <SelectItem key={branch.name} value={branch.name}>
+                    {branch.displayName}
+                  </SelectItem>
+                ))
+              )}
             </SelectContent>
           </Select>
         </div>
 
         {/* Error Display */}
         {error && (
-          <div className="p-3 bg-destructive/10 text-destructive rounded-lg text-sm space-y-2">
-            <p className="font-medium">Error</p>
+          <div className="p-3 bg-red-900/20 border border-red-800 text-red-400 rounded-lg text-sm space-y-2">
+            <p className="font-medium text-white">Error</p>
             <p className="whitespace-pre-wrap">{error}</p>
           </div>
         )}
 
         {/* Rate Limit Info */}
         {rateLimitInfo && (
-          <div className="p-3 bg-yellow-500/10 text-yellow-600 dark:text-yellow-400 rounded-lg text-sm">
+          <div className="p-3 bg-yellow-900/20 border border-yellow-800 text-yellow-400 rounded-lg text-sm">
             <p className="whitespace-pre-wrap">{rateLimitInfo}</p>
           </div>
         )}
 
         {/* Update Info */}
         {updateAvailable && updateInfo && (
-          <div className="p-3 bg-primary/10 rounded-lg text-sm space-y-2">
-            <p className="font-medium">Update Available</p>
-            <p>
-              <strong>Version:</strong> {updateInfo.version}
+          <div className="p-3 bg-green-900/20 border border-green-800 rounded-lg text-sm space-y-2">
+            <p className="font-medium text-white">Update Available</p>
+            <p className="text-neutral-300">
+              <strong className="text-white">Version:</strong> {updateInfo.version}
             </p>
             {updateInfo.releaseName && (
-              <p>
-                <strong>Release:</strong> {updateInfo.releaseName}
+              <p className="text-neutral-300">
+                <strong className="text-white">Release:</strong> {updateInfo.releaseName}
               </p>
             )}
             {updateInfo.releaseNotes && (
               <details className="mt-2">
-                <summary className="cursor-pointer font-medium">Release Notes</summary>
-                <div className="mt-2 p-2 bg-background rounded text-xs whitespace-pre-wrap">
+                <summary className="cursor-pointer font-medium text-white">Release Notes</summary>
+                <div className="mt-2 p-2 bg-neutral-800 rounded text-xs whitespace-pre-wrap text-neutral-300">
                   {updateInfo.releaseNotes}
                 </div>
               </details>
@@ -290,17 +302,17 @@ export const BranchUpdater = () => {
         {/* Download Progress */}
         {downloading && downloadProgress && (
           <div className="space-y-2">
-            <div className="flex justify-between text-sm">
+            <div className="flex justify-between text-sm text-white">
               <span>Downloading...</span>
               <span>{Math.round(downloadProgress.percent)}%</span>
             </div>
-            <div className="w-full bg-muted rounded-full h-2">
+            <div className="w-full bg-neutral-800 rounded-full h-2">
               <div
-                className="bg-primary h-2 rounded-full transition-all"
+                className="bg-blue-600 h-2 rounded-full transition-all"
                 style={{ width: `${downloadProgress.percent}%` }}
               />
             </div>
-            <p className="text-xs text-muted-foreground">
+            <p className="text-xs text-neutral-400">
               {(downloadProgress.transferred / 1024 / 1024).toFixed(2)} MB /{" "}
               {(downloadProgress.total / 1024 / 1024).toFixed(2)} MB
               {" • "}
@@ -321,7 +333,12 @@ export const BranchUpdater = () => {
           </Button>
 
           {selectedChannel !== currentChannel && (
-            <Button onClick={handleSwitchChannel} disabled={checking || downloading} size="sm">
+            <Button
+              onClick={handleSwitchChannel}
+              disabled={checking || downloading}
+              variant="secondary"
+              size="sm"
+            >
               {checking ? "Switching..." : "Switch Channel"}
             </Button>
           )}
@@ -336,7 +353,12 @@ export const BranchUpdater = () => {
           </Button>
 
           {updateAvailable && !downloading && (
-            <Button onClick={handleDownloadUpdate} disabled={downloading} size="sm">
+            <Button
+              onClick={handleDownloadUpdate}
+              disabled={downloading}
+              variant="secondary"
+              size="sm"
+            >
               Download Update
             </Button>
           )}
@@ -349,9 +371,9 @@ export const BranchUpdater = () => {
         </div>
 
         {/* Info Box */}
-        <div className="p-3 bg-muted rounded-lg text-xs text-muted-foreground space-y-1">
+        <div className="p-3 bg-neutral-800/50 border border-neutral-800 rounded-lg text-xs text-neutral-400 space-y-1">
           <p>
-            <strong>💡 Tip:</strong> Select a PR to test changes before they're merged.
+            <strong className="text-white">💡 Tip:</strong> Select a PR to test changes before they're merged.
           </p>
           <p>
             When you switch to a PR or branch channel, you'll automatically receive updates when new
