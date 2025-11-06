@@ -244,10 +244,7 @@ export const BranchUpdater = () => {
             onValueChange={setSelectedChannel}
             disabled={loading || checking || downloading}
           >
-            <SelectTrigger
-              id="branch-select"
-              className="bg-black/40 cursor-pointer border border-white/20 text-white"
-            >
+            <SelectTrigger className="bg-black/40 cursor-pointer border border-white/20 text-white">
               <SelectValue placeholder="Select a branch or PR" />
             </SelectTrigger>
             <SelectContent>

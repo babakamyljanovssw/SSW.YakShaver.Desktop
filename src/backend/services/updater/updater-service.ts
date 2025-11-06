@@ -168,10 +168,10 @@ export class UpdaterService {
               `${rateLimit.rate.remaining}/${rateLimit.rate.limit} requests remaining. ` +
               `\n\nTo avoid this, set a GITHUB_TOKEN environment variable for higher limits (5000/hour).`,
           );
-        } catch (rateLimitError) {
+        } catch (err) {
           // If we can't get rate limit info, return the cached data if available
           if (this.branchesCache) {
-            console.warn("Rate limit hit, returning cached data");
+            console.warn("Rate limit hit, returning cached data", err);
             return this.branchesCache.data;
           }
 
