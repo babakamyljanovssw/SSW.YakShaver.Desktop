@@ -46,7 +46,7 @@ export class UpdaterService {
     } else {
       console.warn(
         "No GitHub token configured - using unauthenticated API (60 requests/hour limit). " +
-          "Set GITHUB_TOKEN environment variable for higher limits.",
+        "Set GITHUB_TOKEN environment variable for higher limits.",
       );
     }
 
@@ -164,9 +164,9 @@ export class UpdaterService {
 
           throw new Error(
             `GitHub API rate limit exceeded. ` +
-              `Limit resets in ${minutesUntilReset} minutes. ` +
-              `${rateLimit.rate.remaining}/${rateLimit.rate.limit} requests remaining. ` +
-              `\n\nTo avoid this, set a GITHUB_TOKEN environment variable for higher limits (5000/hour).`,
+            `Limit resets in ${minutesUntilReset} minutes. ` +
+            `${rateLimit.rate.remaining}/${rateLimit.rate.limit} requests remaining. ` +
+            `\n\nTo avoid this, set a GITHUB_TOKEN environment variable for higher limits (5000/hour).`,
           );
         } catch (err) {
           // If we can't get rate limit info, return the cached data if available
@@ -177,7 +177,7 @@ export class UpdaterService {
 
           throw new Error(
             "GitHub API rate limit exceeded. Please wait a few minutes and try again. " +
-              "\n\nTip: Set a GITHUB_TOKEN environment variable for higher limits (5000/hour instead of 60/hour).",
+            "\n\nTip: Set a GITHUB_TOKEN environment variable for higher limits (5000/hour instead of 60/hour).",
           );
         }
       }
@@ -194,13 +194,16 @@ export class UpdaterService {
 
   /**
    * Check for updates on the current channel
+   * Uses electron-updater for all update checking (no GitHub API calls)
    */
   async checkForUpdates(channel: string = this.currentChannel): Promise<UpdateInfo | null> {
     try {
       this.currentChannel = channel;
 
-      // For non-latest channels, we need to manually configure and check
+      // Configure electron-updater for the selected channel
       if (channel !== "latest") {
+        // For non-latest channels, we need to get the release tag from cache
+        // (we only use GitHub API in getAvailableBranches, which is cached)
         const branches = await this.getAvailableBranches();
         const targetBranch = branches.find((b) => b.name === channel);
 
@@ -208,56 +211,30 @@ export class UpdaterService {
           throw new Error(`Channel ${channel} not found`);
         }
 
-        const { data: release } = await this.octokit.repos.getReleaseByTag({
+        // Configure autoUpdater to check this specific release tag
+        autoUpdater.setFeedURL({
+          provider: "github",
           owner: this.config.owner,
           repo: this.config.repo,
-          tag: targetBranch.releaseTag,
+          channel: targetBranch.releaseTag,
         });
-
-        const currentVersion = app.getVersion();
-        if (release.tag_name !== `v${currentVersion}` && release.tag_name !== currentVersion) {
-          // Configure autoUpdater for this release
-          autoUpdater.setFeedURL({
-            provider: "github",
-            owner: this.config.owner,
-            repo: this.config.repo,
-            channel: release.tag_name,
-          });
-
-          const checkResult = await autoUpdater.checkForUpdates();
-          const updateInfo: UpdateInfo =
-            checkResult?.updateInfo ||
-            ({
-              version: release.tag_name,
-              releaseDate: release.published_at || new Date().toISOString(),
-              releaseName: release.name || release.tag_name,
-              releaseNotes: release.body || "",
-            } as UpdateInfo);
-
-          this.lastUpdateCheck = {
-            channel,
-            updateInfo,
-          };
-
-          return updateInfo;
-        }
-
-        this.lastUpdateCheck = { channel, updateInfo: null };
-        return null;
+      } else {
+        // For latest channel, use standard autoUpdater (no channel specified = latest)
+        autoUpdater.setFeedURL({
+          provider: "github",
+          owner: this.config.owner,
+          repo: this.config.repo,
+        });
       }
 
-      // For latest channel, use standard autoUpdater
-      autoUpdater.setFeedURL({
-        provider: "github",
-        owner: this.config.owner,
-        repo: this.config.repo,
-      });
-
+      // Let electron-updater do all the work - it will check GitHub releases
       const result = await autoUpdater.checkForUpdates();
+
       this.lastUpdateCheck = {
         channel,
         updateInfo: result?.updateInfo || null,
       };
+
       return result?.updateInfo || null;
     } catch (error) {
       console.error("Failed to check for updates:", error);
@@ -305,7 +282,7 @@ export class UpdaterService {
         } else {
           throw new Error(
             "Updates can only be downloaded in packaged apps. " +
-              "Please package the app or download manually from GitHub releases.",
+            "Please package the app or download manually from GitHub releases.",
           );
         }
       }
