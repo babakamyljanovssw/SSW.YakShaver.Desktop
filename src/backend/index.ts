@@ -1,6 +1,7 @@
 import { join } from "node:path";
 import { config as dotenvConfig } from "dotenv";
 import { app, BrowserWindow, session } from "electron";
+import { autoUpdater } from "electron-updater";
 import tmp from "tmp";
 import { registerEventForwarders } from "./events/event-forwarder";
 import { AuthIPCHandlers } from "./ipc/auth-handlers";
@@ -9,12 +10,10 @@ import { LLMSettingsIPCHandlers } from "./ipc/llm-settings-handlers";
 import { McpIPCHandlers } from "./ipc/mcp-handlers";
 import { ProcessVideoIPCHandlers } from "./ipc/process-video-handlers";
 import { ScreenRecordingIPCHandlers } from "./ipc/screen-recording-handlers";
-import { UpdaterIPCHandlers } from "./ipc/updater-handlers";
 import { VideoIPCHandlers } from "./ipc/video-handlers";
 import { createMcpOrchestrator } from "./services/mcp/mcp-orchestrator-factory";
 import { RecordingControlBarWindow } from "./services/recording/control-bar-window";
 import { RecordingService } from "./services/recording/recording-service";
-import { UpdaterService } from "./services/updater/updater-service";
 
 const isDev = process.env.NODE_ENV === "development";
 
@@ -35,13 +34,16 @@ loadEnv();
 
 let mainWindow: BrowserWindow | null = null;
 
-if (require("electron-squirrel-startup")) app.quit();
-
 const createWindow = (): void => {
+  // Fix icon path for packaged mode
+  const iconPath = isDev
+    ? join(__dirname, "../ui/public/icons/icon.png")
+    : join(process.resourcesPath, "public/icons/icon.png");
+
   mainWindow = new BrowserWindow({
     width: 1200,
     height: 800,
-    icon: join(__dirname, "../ui/public/icons/icon.png"),
+    icon: iconPath,
     show: false,
     webPreferences: {
       nodeIntegration: false,
@@ -73,7 +75,6 @@ let _llmSettingsHandlers: LLMSettingsIPCHandlers;
 let _mcpHandlers: McpIPCHandlers;
 let _customPromptSettingsHandlers: CustomPromptSettingsIPCHandlers;
 let _processVideoHandlers: ProcessVideoIPCHandlers;
-let _updaterHandlers: UpdaterIPCHandlers;
 let unregisterEventForwarders: (() => void) | undefined;
 
 app.whenReady().then(async () => {
@@ -101,19 +102,17 @@ app.whenReady().then(async () => {
   _mcpHandlers = new McpIPCHandlers(mcpOrchestrator);
   _customPromptSettingsHandlers = new CustomPromptSettingsIPCHandlers();
 
-  // Initialize updater service
-  _updaterHandlers = new UpdaterIPCHandlers();
-
-  // Setup auto-update checking (check every 30 minutes)
-  if (!isDev) {
-    UpdaterService.getInstance().setupAutoUpdate(1000 * 60 * 30);
-  }
-
   // Pre-initialize control bar window for faster display
   RecordingControlBarWindow.getInstance().initialize(isDev);
 
   unregisterEventForwarders = registerEventForwarders();
   createWindow();
+
+  // Auto-updates: Check only in packaged mode (dev skips)
+  // Configure and check based on stored channel preference
+  if (app.isPackaged) {
+    autoUpdater.checkForUpdatesAndNotify();
+  }
 });
 
 tmp.setGracefulCleanup();
