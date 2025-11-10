@@ -328,3 +328,4 @@ jobs:
                 core.setFailed(`Failed to delete release ${tagName}: ${error.message}`);
               }
             }
+
