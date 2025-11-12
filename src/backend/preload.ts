@@ -67,6 +67,15 @@ const IPC_CHANNELS = {
   SETTINGS_UPDATE_PROMPT: "settings:update-prompt",
   SETTINGS_DELETE_PROMPT: "settings:delete-prompt",
   SETTINGS_SET_ACTIVE_PROMPT: "settings:set-active-prompt",
+
+  // Updater
+  UPDATER_GET_BRANCHES: "updater:get-branches",
+  UPDATER_GET_CURRENT_INFO: "updater:get-current-info",
+  UPDATER_CHECK_FOR_UPDATES: "updater:check-for-updates",
+  UPDATER_DOWNLOAD_UPDATE: "updater:download-update",
+  UPDATER_INSTALL_UPDATE: "updater:install-update",
+  UPDATER_SWITCH_CHANNEL: "updater:switch-channel",
+  UPDATER_DOWNLOAD_PROGRESS: "updater:download-progress",
 } as const;
 
 const onIpcEvent = <T>(channel: string, callback: (payload: T) => void) => {
@@ -172,6 +181,18 @@ const electronAPI = {
     deletePrompt: (id: string) => ipcRenderer.invoke(IPC_CHANNELS.SETTINGS_DELETE_PROMPT, id),
     setActivePrompt: (id: string) =>
       ipcRenderer.invoke(IPC_CHANNELS.SETTINGS_SET_ACTIVE_PROMPT, id),
+  },
+  updater: {
+    getBranches: () => ipcRenderer.invoke(IPC_CHANNELS.UPDATER_GET_BRANCHES),
+    getCurrentInfo: () => ipcRenderer.invoke(IPC_CHANNELS.UPDATER_GET_CURRENT_INFO),
+    checkForUpdates: (channel?: string) =>
+      ipcRenderer.invoke(IPC_CHANNELS.UPDATER_CHECK_FOR_UPDATES, channel),
+    downloadUpdate: () => ipcRenderer.invoke(IPC_CHANNELS.UPDATER_DOWNLOAD_UPDATE),
+    installUpdate: () => ipcRenderer.invoke(IPC_CHANNELS.UPDATER_INSTALL_UPDATE),
+    switchChannel: (channel: string) =>
+      ipcRenderer.invoke(IPC_CHANNELS.UPDATER_SWITCH_CHANNEL, channel),
+    onDownloadProgress: (callback: (progress: unknown) => void) =>
+      onIpcEvent(IPC_CHANNELS.UPDATER_DOWNLOAD_PROGRESS, callback),
   },
 };
 

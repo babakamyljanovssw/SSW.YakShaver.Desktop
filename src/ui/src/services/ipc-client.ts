@@ -3,8 +3,8 @@ import type {
   AuthResult,
   AuthState,
   ConvertVideoToMp3Result,
-  HealthStatusInfo,
   CustomPrompt,
+  HealthStatusInfo,
   LLMConfig,
   ScreenRecordingStartResult,
   ScreenRecordingStopResult,
@@ -113,6 +113,58 @@ declare global {
         ) => Promise<boolean>;
         deletePrompt: (id: string) => Promise<boolean>;
         setActivePrompt: (id: string) => Promise<boolean>;
+      };
+      updater: {
+        getBranches: () => Promise<{
+          success: boolean;
+          branches?: Array<{
+            name: string;
+            displayName: string;
+            sha: string;
+            type: "release" | "branch" | "pr";
+            prNumber?: number;
+            releaseTag?: string;
+          }>;
+          error?: string;
+        }>;
+        getCurrentInfo: () => Promise<{
+          success: boolean;
+          version?: string;
+          channel?: string;
+          error?: string;
+        }>;
+        checkForUpdates: (channel?: string) => Promise<{
+          success: boolean;
+          updateAvailable?: boolean;
+          updateInfo?: {
+            version: string;
+            releaseDate: string;
+            releaseName?: string;
+            releaseNotes?: string;
+          };
+          error?: string;
+        }>;
+        downloadUpdate: () => Promise<{
+          success: boolean;
+          error?: string;
+        }>;
+        installUpdate: () => Promise<{
+          success: boolean;
+          error?: string;
+        }>;
+        switchChannel: (channel: string) => Promise<{
+          success: boolean;
+          updateAvailable?: boolean;
+          error?: string;
+        }>;
+        onDownloadProgress: (
+          callback: (progress: {
+            bytesPerSecond: number;
+            percent: number;
+            transferred: number;
+            total: number;
+          }) => void,
+        ) => () => void;
       };
     };
   }

@@ -109,6 +109,7 @@ app.whenReady().then(async () => {
   createWindow();
 
   // Auto-updates: Check only in packaged mode (dev skips)
+  // Configure and check based on stored channel preference
   if (app.isPackaged) {
     autoUpdater.checkForUpdatesAndNotify();
   }

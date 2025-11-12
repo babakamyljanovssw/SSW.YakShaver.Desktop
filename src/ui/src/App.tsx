@@ -2,9 +2,10 @@ import { Toaster } from "sonner";
 import "./App.css";
 import logoImage from "/logos/YakShaver-Vertical-Color-Darkmode.svg?url";
 import { VideoHostPanel } from "./components/layout/VideoHostPanel";
-import { WorkflowProgressPanel } from "./components/workflow/WorkflowProgressPanel";
-import { FinalResultPanel } from "./components/workflow/FinalResultPanel";
 import { ScreenRecorder } from "./components/recording/ScreenRecorder";
+import { SettingsButton } from "./components/settings/SettingsPanel";
+import { FinalResultPanel } from "./components/workflow/FinalResultPanel";
+import { WorkflowProgressPanel } from "./components/workflow/WorkflowProgressPanel";
 import { YouTubeAuthProvider } from "./contexts/YouTubeAuthContext";
 
 export default function App() {
@@ -12,6 +13,11 @@ export default function App() {
     <div className="min-h-screen py-8 text-white">
       <Toaster />
       <div className="fixed inset-0 bg-[url('/background/YakShaver-Background.jpg')] bg-cover bg-center bg-no-repeat"></div>
+
+      {/* Settings button in top-right corner */}
+      <div className="fixed top-4 right-4 z-50">
+        <SettingsButton />
+      </div>
 
       <div className="flex flex-col gap-8">
         <header className="z-10 relative">
